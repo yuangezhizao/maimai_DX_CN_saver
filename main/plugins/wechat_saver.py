@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 """
     :Author: yuangezhizao
-    :Time: 2020/1/29 0029 10:50
+    :Time: 2020/12/12 23:11
     :Site: https://www.yuangezhizao.cn
-    :Copyright: © 2019 yuangezhizao <root@yuangezhizao.cn>
+    :Copyright: © 2020 yuangezhizao <root@yuangezhizao.cn>
 """
 import datetime
 import re
@@ -13,66 +13,11 @@ import time
 import requests
 from lxml import etree
 
-from main.models.maimai import HOME, PlayerData, Record, playlogDetail, album
+from maimai_DX_CN_probe.models.maimai import HOME, PlayerData, album, Record, playlogDetail
 
 
-def get_wx_data(d_type, cookies):
-    if d_type not in ['home', 'playerData', 'record', 'ranking']:
-        raise Exception('Error：d_type 404')
-    url = f'https://maimai.wahlap.com/maimai-mobile/{d_type}/'
-    headers = {
-        'User-Agent': 'Mozilla/5.0',
-        'Cookie': cookies
-    }
-    r = requests.get(url, headers=headers, verify=False)
-    r_text = r.text
-    status_code = r.status_code
-    if status_code != 200:
-        return [False, 'ERROR：status_code != 200']
-    if '错误码' in r_text:
-        error_code = re.findall('错误码：(.*?)</div>', r_text, re.S)[0]
-        return [False, f'ERROR：error_code {error_code}']
-    return [True, r_text]
-
-
-def get_wx_data_playlogdetail():
-    session = requests.Session()
-    cookies = {
-        '_t': '<rm>',
-        'userId': '<rm>'
-    }
-    # 下方手动指定并不会更新 cookies，因此不可多次使用
-    # cookies = requests.utils.cookiejar_from_dict(cookies)
-    # session.cookies = cookies
-    start_posi = 0
-    end_posi = 9
-    for i in range(start_posi, end_posi):
-        print(i)
-        url = f'https://maimai.wahlap.com/maimai-mobile/record/playlogDetail/?idx={i}'
-
-        headers = {
-            'User-Agent': 'Mozilla/5.0',
-        }
-        if i == start_posi:
-            r = session.get(url, headers=headers, cookies=cookies)
-        else:
-            # 之后 session 库自行处理 cookies
-            r = session.get(url, headers=headers)
-        r_text = r.text
-        status_code = r.status_code
-        if status_code != 200:
-            raise Exception('ERROR：status_code != 200')
-        if '错误码' in r_text:
-            error_code = re.findall('错误码：(.*?)</div>', r_text, re.S)[0]
-            raise Exception(f'ERROR：error_code {error_code}')
-        get_playlogdetail(r_text)
-        time.sleep(1)
-
-
-def get_home_cache():
-    raw = ''''''
-
-    selector = etree.HTML(raw)
+def save_home(raw_html):
+    selector = etree.HTML(raw_html)
 
     basic_img = selector.xpath('/html/body/div[2]/div[2]/div[1]/img/@src')[0]
     trophy = selector.xpath('/html/body/div[2]/div[2]/div[1]/div[1]/div[1]/div/span/text()')[0]
@@ -89,13 +34,11 @@ def get_home_cache():
     new_maimai_HOME = HOME(basic_img, trophy, name, rating, rating_max, rating_img, grade_img, star, chara, comment,
                            cache_dt)
     r = new_maimai_HOME.save()
-    print(r)
+    return r
 
 
-def get_playerData_cache():
-    raw = ''''''
-
-    selector = etree.HTML(raw)
+def save_playerData(raw_html):
+    selector = etree.HTML(raw_html)
 
     music_count = selector.xpath('/html/body/div[2]/div[2]/div[3]/text()')[0].split('：')[1]
     total_count = selector.xpath('/html/body/div[2]/div[2]/div[4]/div[2]/text()')[0].split('/')[1].replace(',', '')
@@ -123,13 +66,13 @@ def get_playerData_cache():
                                        fsdp, fsd, fsp, fs,
                                        cache_dt)
     r = new_maimai_PlayerData.save()
-    print(r)
+    return r
 
 
-def get_playerData_album_cache():
-    raw = ''''''
+def save_playerData_album(raw_html):
+    selector = etree.HTML(raw_html)
 
-    selector = etree.HTML(raw)
+    new_count = 0
     album_count = len(selector.xpath('.//div[@class=" m_10 p_5 f_0"]'))
 
     for i in range(album_count + 1, 1, -1):
@@ -139,25 +82,26 @@ def get_playerData_album_cache():
         level_img_s = selector.xpath(f'/html/body/div[2]/div[{i}]/div/img[2]/@src')[0].split('/')[-1].split('.')[0]
         name = selector.xpath(f'/html/body/div[2]/div[{i}]/div/div[3]/text()')[0]
         img = selector.xpath(f'/html/body/div[2]/div[{i}]/div/img[3]/@src')[0].split('/')[-1]
-
         cache_dt = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        if not album.query.filter(album.play_dt == play_dt).first():
+            new_maimai_album = album(dx_img_s, play_dt, play_dt_utc, level_img_s, name, img, cache_dt)
+            new_maimai_album.save()
+            new_count += 1
 
-        new_maimai_album = album(dx_img_s, play_dt, play_dt_utc, level_img_s, name, img, cache_dt)
-        r = new_maimai_album.save()
-        print(r)
+    return [new_count, album_count]
 
 
-def get_record_cache():
-    raw = ''''''
+def save_record(raw_html):
+    selector = etree.HTML(raw_html)
 
-    selector = etree.HTML(raw)
+    new_count = 0
     record_count = len(selector.xpath('//div[@class="p_10 t_l f_0 v_b"]'))
 
     for i in range(record_count + 1, 1, -1):
         level_img_s = selector.xpath(f'/html/body/div[2]/div[{i}]/div[1]/img/@src')[0].split('/')[-1].split('.')[0]
         try:
-            vs_img_s = \
-                selector.xpath(f'/html/body/div[2]/div[{i}]/div[1]/img[3]/@src')[0].split('/')[-1].split('.')[0]
+            vs_img_s = selector.xpath(f'/html/body/div[2]/div[{i}]/div[1]/img[3]/@src')[0] \
+                .split('/')[-1].split('.')[0]
         except Exception as e:
             vs_img_s = None
 
@@ -174,57 +118,92 @@ def get_record_cache():
             clear = False
         name = selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[1]/text()')[0]
         img_s = selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/img[1]/@src')[0]
-        dx_img_s = selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/img[2]/@src')[0].split('/')[-1].split('.')[
-            0]
+        dx_img_s = selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/img[2]/@src')[0] \
+            .split('/')[-1].split('.')[0]
         achievement_0 = selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/div/div[2]/text()')[0]
         achievement_1 = selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/div/div[2]/span/text()')[0]
         achievement = int(achievement_0) + float(f'0{achievement_1}'[:-1])
         try:
             selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/div/img[3]/@src')[0]
             score_rank_new = True
-            score_rank_img_s = \
-                selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/div/img[2]/@src')[0].split('/')[-1].split(
-                    '.')[0]
+            score_rank_img_s = selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/div/img[2]/@src')[0] \
+                .split('/')[-1].split('.')[0]
         except Exception as e:
             score_rank_new = False
-            score_rank_img_s = \
-                selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/div/img[1]/@src')[0].split('/')[-1].split(
-                    '.')[0]
-        delux_score = \
-            selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/div/div[3]/div[1]/div/text()')[0].split('/')[
-                -1].split('.')[0].replace(',', '')
+            score_rank_img_s = selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/div/img[1]/@src')[0] \
+                .split('/')[-1].split('.')[0]
+        delux_score = selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/div/div[3]/div[1]/div/text()')[0] \
+            .split('/')[-1].split('.')[0].replace(',', '')
         try:
             selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/div/div[3]/div[1]/img[2]/@src')[0]
             delux_new = True
         except Exception as e:
             delux_new = False
-        fc_img_s = \
-            selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/div/div[3]/img[1]/@src')[0].split('/')[-1].split(
-                '.')[0]
-        fs_img_s = \
-            selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/div/div[3]/img[2]/@src')[0].split('/')[-1].split(
-                '.')[0]
+        fc_img_s = selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/div/div[3]/img[1]/@src')[0] \
+            .split('/')[-1].split('.')[0]
+        fs_img_s = selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/div/div[3]/img[2]/@src')[0] \
+            .split('/')[-1].split('.')[0]
         try:
-            rate_img_s = \
-                selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/div/div[3]/img[3]/@src')[0].split('/')[
-                    -1].split('.')[0]
+            rate_img_s = selector.xpath(f'/html/body/div[2]/div[{i}]/div[2]/div[2]/div/div[3]/img[3]/@src')[0] \
+                .split('/')[-1].split('.')[0]
         except Exception as e:
             rate_img_s = None
         cache_dt = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-        new_maimai_Record = Record(level_img_s, vs_img_s, track, play_dt, play_dt_utc, clear, name, img_s, dx_img_s,
-                                   achievement,
-                                   score_rank_new, score_rank_img_s, delux_score, delux_new, fc_img_s, fs_img_s,
-                                   rate_img_s, cache_dt)
-        r = new_maimai_Record.save()
-        print(r)
-        # old_maimai_Record = Record.query.filter(Record.play_dt == play_dt).first()
-        # old_maimai_Record.vs_img_s = vs_img_s
-        #
-        # r = old_maimai_Record.update()
+
+        if not Record.query.filter(Record.play_dt == play_dt).first():
+            new_maimai_Record = Record(level_img_s, vs_img_s, track, play_dt, play_dt_utc, clear, name, img_s, dx_img_s,
+                                       achievement,
+                                       score_rank_new, score_rank_img_s, delux_score, delux_new, fc_img_s, fs_img_s,
+                                       rate_img_s, cache_dt)
+            new_maimai_Record.save()
+            new_count += 1
+
+    return [new_count, record_count]
 
 
-def get_playlogdetail(raw):
-    selector = etree.HTML(raw)
+def save_record_playlogDetail(userId, _t, start_posi, end_posi):
+    session = requests.Session()
+    # 下方手动指定并不会更新 cookies，因此不可多次使用
+    # cookies = requests.utils.cookiejar_from_dict(cookies)
+    # session.cookies = cookies
+
+    if end_posi <= start_posi:
+        idx = list(range(start_posi, 50))
+        idx.extend(list(range(0, end_posi)))
+    else:
+        idx = range(start_posi, end_posi)
+
+    for i in idx:
+        url = f'https://maimai.wahlap.com/maimai-mobile/record/playlogDetail/?idx={i}'
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_0_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
+        }
+        cookies = {
+            'userId': userId,
+            '_t': _t
+        }
+
+        if i == idx[0]:
+            r = session.get(url, headers=headers, cookies=cookies, verify=False)
+        else:
+            # 之后 session 库自行处理 cookies
+            r = session.get(url, headers=headers, verify=False)
+        r_text = r.text
+        status_code = r.status_code
+        if status_code != 200:
+            return f'ERROR [{i}]：status_code != 200'
+        if '错误码' in r_text:
+            error_code = re.findall('错误码：(.*?)</div>', r_text, re.S)[0]
+            return f'ERROR [{i}]：error_code {error_code}'
+        parse_record_playlogDetail(r_text)
+        time.sleep(1)
+    print(session.cookies.get_dict())
+    return idx
+
+
+def parse_record_playlogDetail(raw_html):
+    selector = etree.HTML(raw_html)
+
     vsUser = len(selector.xpath('//div[@class="see_through_block m_10 m_t_0  p_l_10 t_l f_0 break"]'))
     if vsUser:
         vs_rank = selector.xpath('/html/body/div[2]/div[3]/span/div[1]/text()')[0]
@@ -241,9 +220,8 @@ def get_playlogdetail(raw):
         vs_rating = None
         vs_grade = None
     try:
-        chara_0_img_s = \
-            selector.xpath('/html/body/div[2]/div[3]/div[2]/div[1]/div/img/@src')[0].split('/')[-1].split('.')[
-                0]
+        chara_0_img_s = selector.xpath('/html/body/div[2]/div[3]/div[2]/div[1]/div/img/@src')[0] \
+            .split('/')[-1].split('.')[0]
         chara_0_star = selector.xpath('/html/body/div[2]/div[3]/div[2]/div[2]/text()')[0][1:]
         chara_0_lv = selector.xpath('/html/body/div[2]/div[3]/div[2]/div[3]/text()')[0][2:]
     except Exception as e:
@@ -251,9 +229,8 @@ def get_playlogdetail(raw):
         chara_0_star = 0
         chara_0_lv = 0
     try:
-        chara_1_img_s = \
-            selector.xpath('/html/body/div[2]/div[3]/div[3]/div[1]/div/img/@src')[0].split('/')[-1].split('.')[
-                0]
+        chara_1_img_s = selector.xpath('/html/body/div[2]/div[3]/div[3]/div[1]/div/img/@src')[0] \
+            .split('/')[-1].split('.')[0]
         chara_1_star = selector.xpath('/html/body/div[2]/div[3]/div[3]/div[2]/text()')[0][1:]
         chara_1_lv = selector.xpath('/html/body/div[2]/div[3]/div[3]/div[3]/text()')[0][2:]
     except Exception as e:
@@ -261,9 +238,8 @@ def get_playlogdetail(raw):
         chara_1_star = 0
         chara_1_lv = 0
     try:
-        chara_2_img_s = \
-            selector.xpath('/html/body/div[2]/div[3]/div[4]/div[1]/div/img/@src')[0].split('/')[-1].split('.')[
-                0]
+        chara_2_img_s = selector.xpath('/html/body/div[2]/div[3]/div[4]/div[1]/div/img/@src')[0] \
+            .split('/')[-1].split('.')[0]
         chara_2_star = selector.xpath('/html/body/div[2]/div[3]/div[4]/div[2]/text()')[0][1:]
         chara_2_lv = selector.xpath('/html/body/div[2]/div[3]/div[4]/div[3]/text()')[0][2:]
     except Exception as e:
@@ -271,9 +247,8 @@ def get_playlogdetail(raw):
         chara_2_star = 0
         chara_2_lv = 0
     try:
-        chara_3_img_s = \
-            selector.xpath('/html/body/div[2]/div[3]/div[5]/div[1]/div/img/@src')[0].split('/')[-1].split('.')[
-                0]
+        chara_3_img_s = selector.xpath('/html/body/div[2]/div[3]/div[5]/div[1]/div/img/@src')[0] \
+            .split('/')[-1].split('.')[0]
         chara_3_star = selector.xpath('/html/body/div[2]/div[3]/div[5]/div[2]/text()')[0][1:]
         chara_3_lv = selector.xpath('/html/body/div[2]/div[3]/div[5]/div[3]/text()')[0][2:]
     except Exception as e:
@@ -281,9 +256,8 @@ def get_playlogdetail(raw):
         chara_3_star = 0
         chara_3_lv = 0
     try:
-        chara_4_img_s = \
-            selector.xpath('/html/body/div[2]/div[3]/div[6]/div[1]/div/img/@src')[0].split('/')[-1].split('.')[
-                0]
+        chara_4_img_s = selector.xpath('/html/body/div[2]/div[3]/div[6]/div[1]/div/img/@src')[0] \
+            .split('/')[-1].split('.')[0]
         chara_4_star = selector.xpath('/html/body/div[2]/div[3]/div[6]/div[2]/text()')[0][1:]
         chara_4_lv = selector.xpath('/html/body/div[2]/div[3]/div[6]/div[3]/text()')[0][2:]
     except Exception as e:
@@ -324,15 +298,15 @@ def get_playlogdetail(raw):
         delux_rating = 0
         print(e)
     try:
-        delux_rating_diff = \
-            selector.xpath('/html/body/div[2]/div[3]/div[9]/div[1]/div[1]/img[2]/@src')[0].split('/')[-1].split('.')[0]
+        delux_rating_diff = selector.xpath('/html/body/div[2]/div[3]/div[9]/div[1]/div[1]/img[2]/@src')[0] \
+            .split('/')[-1].split('.')[0]
     except Exception as e:
         print('【ERROR】delux_rating_diff')
         delux_rating_diff = ''
         print(e)
     try:
-        grade_pic_s = \
-            selector.xpath('/html/body/div[2]/div[3]/div[9]/div[1]/div[2]/img/@src')[0].split('/')[-1].split('.')[0]
+        grade_pic_s = selector.xpath('/html/body/div[2]/div[3]/div[9]/div[1]/div[2]/img/@src')[0] \
+            .split('/')[-1].split('.')[0]
     except Exception as e:
         print('【ERROR】grade_pic_s')
         grade_pic_s = ''
@@ -438,7 +412,6 @@ def get_playlogdetail(raw):
         # 单人模式
         level_img_s = None
         name = None
-
     cache_dt = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
 
     new_maimai_playlogDetail = playlogDetail(vs_rank, vs_achievement, vs_rating, vs_grade, chara_0_img_s, chara_0_star,
@@ -458,13 +431,4 @@ def get_playlogdetail(raw):
                                              notes_break_p,
                                              notes_break_great, notes_break_good, notes_break_miss, maxcombo, maxsync,
                                              level_img_s, name, cache_dt)
-    r = new_maimai_playlogDetail.save()
-    print(r)
-
-
-if __name__ == '__main__':
-    # get_home_cache()
-    # get_playerData_cache()
-    # get_playerData_album_cache()
-    # get_record_cache()
-    get_wx_data_playlogdetail()
+    new_maimai_playlogDetail.save()
