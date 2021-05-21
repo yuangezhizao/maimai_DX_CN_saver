@@ -4,9 +4,9 @@
     :Author: yuangezhizao
     :Time: 2020/1/29 0029 10:49
     :Site: https://www.yuangezhizao.cn
-    :Copyright: © 2019 yuangezhizao <root@yuangezhizao.cn>
+    :Copyright: © 2020 yuangezhizao <root@yuangezhizao.cn>
 """
-from . import db
+from maimai_DX_CN_probe.plugins.extensions import db
 
 
 class HOME(db.Model):
@@ -243,6 +243,7 @@ class Record(db.Model):
     fs_img_s = db.Column(db.VARCHAR(50))
     rate_img_s = db.Column(db.VARCHAR(50))
 
+    single_rating = db.Column(db.FLOAT(4), default=0)
     cache_dt = db.Column(db.DateTime, nullable=False)
 
     def __init__(self, level_img_s, vs_img_s, track, play_dt, play_dt_utc, clear, name, img_s, dx_img_s, achievement,
@@ -268,12 +269,12 @@ class Record(db.Model):
         self.cache_dt = cache_dt,
 
     def __repr__(self):
-        return '<PlayerData (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, )>' % (
+        return '<PlayerData (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)>' % (
             self.level_img_s, self.vs_img_s, self.track, self.play_dt, self.play_dt_utc, self.clear, self.name,
             self.img_s,
             self.dx_img_s,
             self.achievement, self.score_rank_new, self.score_rank_img_s, self.delux_score, self.delux_new,
-            self.fc_img_s, self.fs_img_s, self.rate_img_s, self.cache_dt)
+            self.fc_img_s, self.fs_img_s, self.rate_img_s, self.single_rating, self.cache_dt)
 
     def to_json(self):
         num = {
@@ -295,6 +296,7 @@ class Record(db.Model):
             'fc_img_s': self.fc_img_s,
             'fs_img_s': self.fs_img_s,
             'rate_img_s': self.rate_img_s,
+            'single_rating': self.single_rating,
             'cache_dt': self.cache_dt,
         }
         return num
@@ -537,6 +539,162 @@ class playlogDetail(db.Model):
             'cache_dt': self.cache_dt,
         }
         return num
+
+    def save(self):
+        db.session.add(self)
+        db.session.commit()
+        return self
+
+    def update(self):
+        db.session.commit()
+        return self
+
+
+class musicInfo(db.Model):
+    __bind_key__ = 'maimai'
+    __tablename__ = 'musicinfo'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.VARCHAR(50), nullable=False)
+    level_img_s = db.Column(db.VARCHAR(50), nullable=False)
+    dx_img_s = db.Column(db.VARCHAR(50))
+
+    music_genre = db.Column(db.VARCHAR(50))
+    music_word = db.Column(db.VARCHAR(50))
+    music_level = db.Column(db.VARCHAR(50), nullable=False)
+    music_version = db.Column(db.VARCHAR(50))
+
+    ver = db.Column(db.VARCHAR(50))
+    constant = db.Column(db.FLOAT(2))
+
+    cache_dt = db.Column(db.DateTime, nullable=False)
+
+    def __init__(self, name, level_img_s, dx_img_s, music_genre, music_word, music_level, music_version, ver,
+                 cache_dt):
+        self.name = name,
+        self.level_img_s = level_img_s,
+        self.dx_img_s = dx_img_s,
+        self.music_genre = music_genre,
+        self.music_word = music_word,
+        self.music_level = music_level,
+        self.music_version = music_version,
+        self.ver = ver,
+        self.cache_dt = cache_dt
+
+    def __repr__(self):
+        return '<musicInfo (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,)>' % (
+            self.id, self.name, self.level_img_s, self.dx_img_s, self.music_genre, self.music_word, self.music_level,
+            self.music_version, self.ver, self.cache_dt)
+
+    def to_json(self):
+        num = {
+            'id': self.id,
+            'name': self.name,
+            'level_img_s': self.level_img_s,
+            'dx_img_s': self.dx_img_s,
+            'music_genre': self.music_genre,
+            'music_word': self.music_word,
+            'music_level': self.music_level,
+            'music_version': self.music_version,
+            'ver': self.ver,
+            'cache_dt': self.cache_dt
+        }
+        return num
+
+    def save(self):
+        try:
+            db.session.add(self)
+            db.session.commit()
+        except Exception as e:
+            print(e)
+            db.session.rollback()
+        return self
+
+    def update(self):
+        db.session.commit()
+        return self
+
+
+class musicInfo_2021(db.Model):
+    __bind_key__ = 'maimai'
+    __tablename__ = 'musicinfo_2021'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.VARCHAR(50), nullable=False)
+    level_img_s = db.Column(db.VARCHAR(50), nullable=False)
+    dx_img_s = db.Column(db.VARCHAR(50))
+
+    music_genre = db.Column(db.VARCHAR(50))
+    music_word = db.Column(db.VARCHAR(50))
+    music_level = db.Column(db.VARCHAR(50), nullable=False)
+    music_version = db.Column(db.VARCHAR(50))
+
+    ver = db.Column(db.VARCHAR(50))
+    constant = db.Column(db.FLOAT(2))
+
+    cache_dt = db.Column(db.DateTime, nullable=False)
+
+    def __init__(self, name, level_img_s, dx_img_s, music_genre, music_word, music_level, music_version, ver,
+                 cache_dt):
+        self.name = name,
+        self.level_img_s = level_img_s,
+        self.dx_img_s = dx_img_s,
+        self.music_genre = music_genre,
+        self.music_word = music_word,
+        self.music_level = music_level,
+        self.music_version = music_version,
+        self.ver = ver,
+        self.cache_dt = cache_dt
+
+    def __repr__(self):
+        return '<musicInfo_2021 (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,)>' % (
+            self.id, self.name, self.level_img_s, self.dx_img_s, self.music_genre, self.music_word, self.music_level,
+            self.music_version, self.ver, self.cache_dt)
+
+    def to_json(self):
+        num = {
+            'id': self.id,
+            'name': self.name,
+            'level_img_s': self.level_img_s,
+            'dx_img_s': self.dx_img_s,
+            'music_genre': self.music_genre,
+            'music_word': self.music_word,
+            'music_level': self.music_level,
+            'music_version': self.music_version,
+            'ver': self.ver,
+            'cache_dt': self.cache_dt
+        }
+        return num
+
+    def save(self):
+        try:
+            db.session.add(self)
+            db.session.commit()
+        except Exception as e:
+            print(e)
+            db.session.rollback()
+        return self
+
+    def update(self):
+        db.session.commit()
+        return self
+
+
+class practice(db.Model):
+    __bind_key__ = 'maimai'
+    __tablename__ = 'practice'
+
+    id = db.Column(db.Integer, primary_key=True, nullable=True)
+    name = db.Column(db.VARCHAR(255), nullable=False)
+    level_img_s = db.Column(db.VARCHAR(50))
+    tips = db.Column(db.VARCHAR(255))
+    insert_time = db.Column(db.DateTime)
+    update_time = db.Column(db.DateTime)
+
+    def __init__(self, name, level_img_s, tips):
+        self.name = name
+        self.level_img_s = level_img_s
+        self.tips = tips
 
     def save(self):
         db.session.add(self)
