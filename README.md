@@ -18,4 +18,6 @@
 - [ ] 排行榜（ranking）
 
 ### 相关项目
-[mainetcn](https://github.com/Astrian/mainetcn)
+[mainetcn](https://github.com/Astrian/mainetcn)：`Cookie`中`userId`的解释非常详细，以至于自己的项目都懒得再写了
+
+[maimaidx-prober](https://github.com/Diving-Fish/maimaidx-prober)：都拿`Go`写了个抓包工具，实在是太硬核了
