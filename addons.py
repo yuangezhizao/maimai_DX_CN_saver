@@ -7,6 +7,7 @@
     :Copyright: © 2021 yuangezhizao <root@yuangezhizao.cn>
 """
 import mitmproxy.http
+import pyperclip
 
 
 class GetCookies:
@@ -15,7 +16,10 @@ class GetCookies:
 
     def request(self, flow: mitmproxy.http.HTTPFlow):
         if flow.request.url == 'https://maimai.wahlap.com/maimai-mobile/home/':
-            print(flow.request.cookies)
+            cookies = flow.request.cookies
+            userId = cookies['userId']
+            pyperclip.copy(userId)
+            print(f'userId: {userId} 已复制到剪切板')
 
 
 addons = [
