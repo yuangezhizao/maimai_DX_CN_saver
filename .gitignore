@@ -62,7 +62,8 @@ db.sqlite3
 db.sqlite3-journal
 
 # Flask stuff:
-instance/
+# 实例文件夹使用 git 管理，密匙均做 <rm> 处理
+# instance/
 .webassets-cache
 
 # Scrapy stuff:
@@ -127,3 +128,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Pycharm
+.idea/*
