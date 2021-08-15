@@ -14,10 +14,10 @@ class GetCookies:
     def __init__(self):
         pass
 
-    def request(self, flow: mitmproxy.http.HTTPFlow):
+    def response(self, flow: mitmproxy.http.HTTPFlow):
         if flow.request.url == 'https://maimai.wahlap.com/maimai-mobile/home/':
-            cookies = flow.request.cookies
-            userId = cookies['userId']
+            cookies = flow.response.headers.get('Set-Cookie')
+            userId = cookies.split('userId=')[1].split(';')[0]
             pyperclip.copy(userId)
             print(f'userId: {userId} 已复制到剪切板')
 
