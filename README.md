@@ -20,7 +20,7 @@
 mitmdump -s addons.py
 ```
 
-### 页面适配（Ver.CH1.11-D）
+### 页面适配（Ver.CH1.11-E）
 
 - [x] 主页（home）
 - [x] 游戏数据
